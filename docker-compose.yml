@@ -1,0 +1,69 @@
+services:
+  consumerd:
+    container_name: consumerd
+    build:
+      context: ./
+      dockerfile: Dockerfile.consumerd
+    environment:
+      - SOURCE_TOPIC=playground.topic
+      - KAFKA_BROKERS=kafka-single:9092
+    depends_on:
+      - kafka # Kafka
+    deploy:
+      restart_policy:
+        condition: always # 'always' restart in case of failure
+    networks:
+      - playground
+  producerd:
+    container_name: producerd
+    build:
+      context: ./
+      dockerfile: Dockerfile.producerd
+    environment:
+      - SINK_TOPIC=playground.topic
+      - KAFKA_BROKERS=kafka-single:9092
+    depends_on:
+      - kafka # Kafka
+    deploy:
+      restart_policy:
+        condition: always # 'always' restart in case of failure
+    networks:
+      - playground
+  kafka:
+    image: docker.io/bitnami/kafka:3.6
+    container_name: kafka
+    hostname: kafka-single
+    volumes:
+      - "./local/kafka:/bitnami"
+    ports:
+      - 9092:9092 # Kafka
+    environment:
+      # KRaft settings
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      # Listeners
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      # Auto-create topics
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+    networks:
+      - playground
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.1
+    container_name: kafka-ui
+    ports:
+      - "8100:8080"
+    restart: always
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=kafka-single
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka-single:9092
+    depends_on:
+      - kafka
+    networks:
+      - playground
+networks:
+  playground:
